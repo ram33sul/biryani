@@ -1,0 +1,5 @@
+ingredient abc is 10
+layer abc hotter 0 {
+    plate abc
+    ingredient abc is abc - 1
+}

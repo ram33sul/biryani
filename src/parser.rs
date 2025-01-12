@@ -1,4 +1,6 @@
-use crate::{commands::Command, lexer::Lexer, tokens::Token};
+use core::num;
+
+use crate::{commands::Command, lexer::Lexer, tokens::Token, utils::MathsOperations};
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -32,6 +34,7 @@ impl Parser {
             Token::Serve => self.parse_serve(),
             Token::Plate => self.parse_plate(),
             Token::Recipe => self.parse_recipe(),
+            Token::Maths(_) => self.parse_maths(),
             _ => None,
         }
     }
@@ -41,7 +44,39 @@ impl Parser {
         let identifier = self.expect_identifier()?;
         self.expect_token(Token::Is)?;
         let value = self.expect_value()?;
-        Some(Command::Ingredient { identifier, value })
+        let mut values = vec![value];
+        while let Some(token) = self.next_token() {
+            if let Token::Maths(_) = token {
+                values.push(token);
+            } else if let Token::Number(_) = token {
+                values.push(token);
+            } else if let Token::Identifier(_) = token {
+                values.push(token);
+            } else {
+                self.previous();
+                break;
+            }
+        }
+        Some(Command::Ingredient { identifier, values })
+    }
+
+    pub fn parse_maths(&mut self) -> Option<Command> {
+        self.previous();
+        let mut values = vec![];
+        while let Some(token) = self.next_token() {
+            let value = match token {
+                Token::Number(number) => Some(Token::Number(number)),
+                Token::Identifier(identifier) => Some(Token::Identifier(identifier)),
+                Token::Maths(operation) => Some(Token::Maths(operation)),
+                _ => None,
+            };
+            if let Some(val) = value {
+                values.push(val);
+            } else {
+                break;
+            }
+        }
+        Some(Command::Maths { values })
     }
 
     pub fn parse_taste(&mut self) -> Option<Command> {
@@ -65,21 +100,17 @@ impl Parser {
 
     pub fn parse_layer(&mut self) -> Option<Command> {
         self.expect_token(Token::Layer)?;
-        let identifier_1 = self.expect_identifier()?;
+        let left_value = self.next_token()?;
         let comparison = self.expect_comparison()?;
-        let identifier_2 = self.expect_identifier()?;
-        let block = self.expect_string_literal()?;
-        if let Token::StringLiteral(string) = block {
-            let mut lexer = Lexer::new(&string);
-            let tokens = lexer.lex();
-            return Some(Command::Layer {
-                identifier_1,
-                identifier_2,
-                comparison,
-                tokens,
-            });
-        }
-        None
+        let right_value = self.next_token()?;
+        let tokens = self.expect_block()?;
+        let commands = Parser::new(tokens).parse();
+        Some(Command::Layer {
+            left_value,
+            right_value,
+            comparison,
+            commands,
+        })
     }
 
     pub fn parse_simmer(&mut self) -> Option<Command> {
@@ -88,8 +119,7 @@ impl Parser {
         self.expect_token(Token::In)?;
         let array_identifier = self.expect_identifier()?;
         let tokens = self.expect_block()?;
-        let mut parser = Parser::new(tokens);
-        let commands = parser.parse();
+        let commands = Parser::new(tokens).parse();
         Some(Command::Simmer {
             identifier,
             array_identifier,
@@ -122,14 +152,15 @@ impl Parser {
 
     pub fn parse_recipe(&mut self) -> Option<Command> {
         self.expect_token(Token::Recipe)?;
+        let identifier = self.expect_identifier()?;
         let params = self.expect_params()?;
-        let block = self.expect_string_literal()?;
-        if let Token::StringLiteral(string) = block {
-            let mut lexer = Lexer::new(&string);
-            let tokens = lexer.lex();
-            return Some(Command::Recipe { params, tokens });
-        }
-        None
+        let tokens = self.expect_block()?;
+        let commands = Parser::new(tokens).parse();
+        Some(Command::Recipe {
+            identifier,
+            params,
+            commands,
+        })
     }
 
     pub fn expect_block(&mut self) -> Option<Vec<Token>> {
@@ -163,6 +194,7 @@ impl Parser {
             Token::ArrayString(array) => Some(Token::ArrayString(array)),
             Token::Number(number) => Some(Token::Number(number)),
             Token::StringLiteral(string) => Some(Token::StringLiteral(string)),
+            Token::Identifier(identifier) => Some(Token::Identifier(identifier)),
             _ => None,
         }
     }
@@ -218,5 +250,9 @@ impl Parser {
     }
     pub fn advance(&mut self) {
         self.position += 1
+    }
+
+    pub fn previous(&mut self) {
+        self.position -= 1
     }
 }

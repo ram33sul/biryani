@@ -1,4 +1,7 @@
-use crate::{tokens::Token, utils::ValueType};
+use crate::{
+    tokens::Token,
+    utils::{MathsOperations, ValueType},
+};
 
 pub struct Lexer {
     input: Vec<char>,
@@ -61,9 +64,23 @@ impl Lexer {
             's' if self.match_keyword("separate") => Some(Token::Separate),
             'i' if self.match_keyword("is") => Some(Token::Is),
             'i' if self.match_keyword("in") => Some(Token::In),
+            'h' if self.match_keyword("hotter") => Some(Token::Hotter),
+            'c' if self.match_keyword("cooler") => Some(Token::Cooler),
+            's' if self.match_keyword("same") => Some(Token::Same),
+            'h' if self.match_keyword("hotorsame") => Some(Token::HotOrSame),
+            'c' if self.match_keyword("coolorsame") => Some(Token::CoolOrSame),
+            'n' if self.match_keyword("notsame") => Some(Token::NotSame),
+            '+' => self.parse_token(Token::Maths(MathsOperations::Plus)),
+            '-' => self.parse_token(Token::Maths(MathsOperations::Minus)),
+            '*' => self.parse_token(Token::Maths(MathsOperations::Multiply)),
+            '/' => self.parse_token(Token::Maths(MathsOperations::Division)),
+            '%' => self.parse_token(Token::Maths(MathsOperations::Mod)),
             '{' => self.parse_block(),
             '[' => self.parse_array(),
-            ' ' => self.parse_space(),
+            '(' => self.parse_params(),
+            ' ' => self.parse_token(Token::Space),
+            '"' => self.parse_string_literal(),
+            '\n' => self.parse_token(Token::Space),
             ch if ch.is_digit(10) => self.parse_number(),
             ch if ch.is_alphanumeric() => self.parse_identifier(),
             _ => None,
@@ -74,6 +91,9 @@ impl Lexer {
         let mut end_pos = self.position;
         while self.input[end_pos].is_alphabetic() {
             end_pos += 1;
+            if (self.input.len() == end_pos) {
+                break;
+            }
         }
         if end_pos >= self.input.len() {
             end_pos = self.input.len() - 1;
@@ -83,6 +103,18 @@ impl Lexer {
             return true;
         }
         false
+    }
+
+    pub fn parse_string_literal(&mut self) -> Option<Token> {
+        let mut string = String::new();
+        self.advance(1);
+        while let Some(ch) = self.next_char() {
+            if ch == '"' {
+                break;
+            }
+            string.push(ch);
+        }
+        Some(Token::StringLiteral(string))
     }
 
     pub fn parse_number(&mut self) -> Option<Token> {
@@ -106,6 +138,7 @@ impl Lexer {
             if ch.is_alphanumeric() && ch != ' ' {
                 identifier.push(ch);
             } else {
+                self.previous(1);
                 break;
             }
         }
@@ -184,24 +217,25 @@ impl Lexer {
             }
             block.push(ch);
         }
-        let mut lexer = Lexer::new(&block);
-        let tokens = lexer.lex();
+        let tokens = Lexer::new(&block).lex();
         Some(Token::Block(tokens))
     }
 
     pub fn parse_params(&mut self) -> Option<Token> {
         let mut params = vec![];
         let mut curr_identifier = String::new();
+        self.advance(1);
         while let Some(ch) = self.next_char() {
             if ch == ' ' {
                 panic!("Spaces are not allowed inside params")
-            } else if ch == ',' {
+            } else if ch == ',' || ch == ')' {
                 params.push(curr_identifier);
                 curr_identifier = String::new();
-            } else if ch == ']' {
-                break;
             } else {
                 curr_identifier.push(ch);
+            }
+            if ch == ')' {
+                break;
             }
         }
         Some(Token::ArrayString(params))
@@ -212,11 +246,24 @@ impl Lexer {
         Some(Token::Space)
     }
 
+    pub fn parse_token(&mut self, token: Token) -> Option<Token> {
+        self.advance(1);
+        Some(token)
+    }
+
     pub fn advance(&mut self, increment: usize) {
         if self.input.len() >= self.position + increment {
             self.position += increment;
         } else {
             panic!("Cannot advance more");
+        }
+    }
+
+    pub fn previous(&mut self, decrement: usize) {
+        if self.position - decrement >= 0 {
+            self.position -= decrement;
+        } else {
+            panic!("Cannot go back");
         }
     }
 }

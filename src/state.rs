@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::{commands::Command, tokens::Token};
+
 pub struct State {
     pub variables: HashMap<String, Value>,
 }
@@ -26,4 +28,6 @@ pub enum Value {
     Number(isize),
     ArrayString(Vec<String>),
     ArrayNumber(Vec<isize>),
+    Function(Vec<String>, Vec<Command>),
+    Boolean(bool),
 }

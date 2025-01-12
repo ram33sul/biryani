@@ -1,3 +1,5 @@
+use std::{env, fs, os::unix::process};
+
 use interpreter::Interpreter;
 use lexer::Lexer;
 use parser::Parser;
@@ -11,16 +13,27 @@ mod tokens;
 mod utils;
 
 fn main() {
-    let file = "ingredient abc is [2,3,4] plate abc simmer n in abc { plate n }";
-    let mut lexer = Lexer::new(file);
-    let tokens = lexer.lex();
+    let args: Vec<String> = env::args().collect();
 
-    println!("{:?}", tokens);
+    println!("args, {:?}", args);
 
-    let mut parser = Parser::new(tokens);
-    let commands = parser.parse();
+    if args.len() < 2 {
+        panic!("Usage: biryani filename");
+    }
 
-    println!("{:?}", commands);
+    let filename = &args[1];
+
+    let code = fs::read_to_string(filename).expect("Unable to read the file");
+
+    let tokens = Lexer::new(&code).lex();
+
+    println!("tokens: {:?}", tokens);
+
+    let commands = Parser::new(tokens).parse();
+
+    println!("commands :{:?}", commands);
+
+    println!();
 
     let mut interpreter = Interpreter::new();
     interpreter.execute(commands);

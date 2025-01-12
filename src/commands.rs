@@ -1,10 +1,10 @@
-use crate::tokens::Token;
+use crate::{state::Value, tokens::Token};
 
 #[derive(Debug, Clone)]
 pub enum Command {
     Ingredient {
         identifier: String,
-        value: Token,
+        values: Vec<Token>,
     },
     Taste {
         identifier_1: String,
@@ -20,10 +20,10 @@ pub enum Command {
         tokens: Vec<Token>,
     },
     Layer {
-        identifier_1: String,
+        left_value: Token,
+        right_value: Token,
         comparison: Token,
-        identifier_2: String,
-        tokens: Vec<Token>,
+        commands: Vec<Command>,
     },
     Simmer {
         identifier: String,
@@ -44,7 +44,11 @@ pub enum Command {
         value: Token,
     },
     Recipe {
+        identifier: String,
         params: Vec<String>,
-        tokens: Vec<Token>,
+        commands: Vec<Command>,
+    },
+    Maths {
+        values: Vec<Token>,
     },
 }

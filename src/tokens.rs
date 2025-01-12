@@ -1,3 +1,5 @@
+use crate::utils::MathsOperations;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Ingredient,
@@ -32,4 +34,5 @@ pub enum Token {
     In,
     Space,
     Block(Vec<Token>),
+    Maths(MathsOperations),
 }
